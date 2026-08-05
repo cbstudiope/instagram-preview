@@ -352,12 +352,6 @@
     <span class="post-count" id="count">—</span>
   </div>
   <div class="header-actions">
-    <button class="btn" id="sort-btn" onclick="toggleSort()">
-      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M3 6h18M8 12h8M13 18h3"/>
-      </svg>
-      <span id="sort-label">Más antiguo</span>
-    </button>
     <button class="icon-btn" onclick="loadPosts()" title="Actualizar">
       <svg id="refresh-icon" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
         <path d="M1 4v6h6"/>
@@ -389,7 +383,7 @@
   const params  = new URLSearchParams(window.location.search);
   const DB_ID   = params.get('db');
   let posts     = [];
-  let sortDir   = 'asc';
+  let sortDir   = 'desc';
   let sortable  = null;
 
   // ── Theme ────────────────────────────────────────────
@@ -400,13 +394,6 @@
     const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('ig-theme', next);
-  }
-
-  // ── Sort ─────────────────────────────────────────────
-  function toggleSort() {
-    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-    document.getElementById('sort-label').textContent = sortDir === 'asc' ? 'Más antiguo' : 'Más reciente';
-    loadPosts();
   }
 
   // ── Toast ────────────────────────────────────────────
@@ -470,9 +457,8 @@
           </svg>
         </div>
 
-        ${p.estado ? `<div class="status-badge ${statusClass(p.estado)}">${p.estado}</div>` : ''}
-
         <div class="overlay">
+          ${p.estado ? `<div class="status-badge ${statusClass(p.estado)}">${p.estado}</div>` : ''}
           <div class="ov-name">${esc(p.name)}</div>
           ${p.pilar ? `<div class="ov-pilar">${esc(p.pilar)}</div>` : ''}
           <div class="ov-date">${formatDate(p.fecha)}</div>
