@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Instagram Preview</title>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --surface: #ffffff;
+      --border: #e0e0e0;
+      --text: #1a1a1a;
+      --text-muted: #8e8e8e;
+      --accent: #0095f6;
+      --overlay: rgba(0, 0, 0, 0.72);
+      --radius: 3px;
+      --skeleton: #efefef;
+      --skeleton-shine: #f9f9f9;
+    }
+
+    [data-theme="dark"] {
+      --bg: #000;
+      --surface: #111;
+      --border: #2a2a2a;
+      --text: #f5f5f5;
+      --text-muted: #888;
+      --overlay: rgba(0, 0, 0, 0.82);
+      --skeleton: #1c1c1c;
+      --skeleton-shine: #2a2a2a;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .post-count {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--border);
+      padding: 2px 7px;
+      border-radius: 20px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.12s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { background: var(--border); }
+
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+
+    .icon-btn:hover { background: var(--border); }
+
+    /* ── Grid ── */
+    .grid-wrap {
+      padding: 10px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    #grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3px;
+    }
+
+    /* ── Post card ── */
+    .post {
+      position: relative;
+      aspect-ratio: 3 / 4;
+      overflow: hidden;
+      background: var(--skeleton);
+      border-radius: var(--radius);
+      cursor: grab;
+      user-select: none;
+    }
+
+    .post:active { cursor: grabbing; }
+
+    .post img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.25s ease;
+    }
+
+    .post:hover img { transform: scale(1.04); }
+
+    /* Status badge */
+    .status-badge {
+      position: absolute;
+      top: 7px;
+      left: 7px;
+      padding: 2px 6px;
+      border-radius: 20px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      backdrop-filter: blur(4px);
+      z-index: 2;
+    }
+
+    .s-por-empezar  { background: rgba(255,255,255,0.88); color: #555; }
+    .s-en-progreso  { background: rgba(255,190,0,0.92);   color: #333; }
+    .s-listo        { background: rgba(0,190,90,0.92);    color: #fff; }
+    .s-publicado    { background: rgba(0,149,246,0.92);   color: #fff; }
+
+    /* Overlay */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: var(--overlay);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 11px;
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      z-index: 3;
+    }
+
+    .post:hover .overlay { opacity: 1; }
+
+    .ov-name {
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.3;
+      margin-bottom: 3px;
+    }
+
+    .ov-pilar {
+      color: rgba(255,255,255,0.7);
+      font-size: 10px;
+      margin-bottom: 3px;
+    }
+
+    .ov-date {
+      color: rgba(255,255,255,0.55);
+      font-size: 10px;
+      margin-bottom: 9px;
+    }
+
+    .ov-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .ov-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.18);
+      border: none;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: background 0.12s;
+    }
+
+    .ov-btn:hover { background: rgba(255,255,255,0.32); }
+
+    /* No image placeholder */
+    .no-img {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--border);
+    }
+
+    /* ── Skeleton ── */
+    .skel {
+      aspect-ratio: 3 / 4;
+      border-radius: var(--radius);
+      background: linear-gradient(90deg,
+        var(--skeleton) 25%,
+        var(--skeleton-shine) 50%,
+        var(--skeleton) 75%
+      );
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ── States ── */
+    .state-msg {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 60px 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .state-msg.error { color: #ed4956; }
+
+    /* ── Drag states ── */
+    .sortable-ghost   { opacity: 0.25; }
+    .sortable-chosen  { opacity: 0.92; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .sortable-drag    { opacity: 0.92; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      background: var(--text);
+      color: var(--bg);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+      z-index: 9999;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Setup screen ── */
+    .setup {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+      gap: 10px;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .setup h2 { font-size: 16px; font-weight: 600; }
+
+    .setup p {
+      font-size: 13px;
+      color: var(--text-muted);
+      max-width: 340px;
+      line-height: 1.6;
+    }
+
+    .setup code {
+      background: var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-family: monospace;
+    }
+
+    /* ── Refresh spin ── */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinning { animation: spin 0.75s linear infinite; }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      #grid { gap: 2px; }
+      .header-title { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <rect x="2" y="2" width="20" height="20" rx="5"/>
+      <circle cx="12" cy="12" r="4"/>
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+    </svg>
+    <span class="header-title">Instagram Preview</span>
+    <span class="post-count" id="count">—</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn" id="sort-btn" onclick="toggleSort()">
+      <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M3 6h18M8 12h8M13 18h3"/>
+      </svg>
+      <span id="sort-label">Más antiguo</span>
+    </button>
+    <button class="icon-btn" onclick="loadPosts()" title="Actualizar">
+      <svg id="refresh-icon" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <path d="M1 4v6h6"/>
+        <path d="M23 20v-6h-6"/>
+        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15"/>
+      </svg>
+    </button>
+    <button class="icon-btn" onclick="toggleTheme()" title="Cambiar tema">
+      <svg id="theme-icon" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="5"/>
+        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- Grid -->
+<div id="app">
+  <div class="grid-wrap">
+    <div id="grid"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Config ──────────────────────────────────────────
+  const params  = new URLSearchParams(window.location.search);
+  const DB_ID   = params.get('db');
+  let posts     = [];
+  let sortDir   = 'asc';
+  let sortable  = null;
+
+  // ── Theme ────────────────────────────────────────────
+  const savedTheme = localStorage.getItem('ig-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('ig-theme', next);
+  }
+
+  // ── Sort ─────────────────────────────────────────────
+  function toggleSort() {
+    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+    document.getElementById('sort-label').textContent = sortDir === 'asc' ? 'Más antiguo' : 'Más reciente';
+    loadPosts();
+  }
+
+  // ── Toast ────────────────────────────────────────────
+  let toastTimer;
+  function showToast(msg, duration = 2200) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove('show'), duration);
+  }
+
+  // ── Helpers ──────────────────────────────────────────
+  function formatDate(d) {
+    if (!d) return '';
+    const date = new Date(d + 'T12:00:00');
+    return date.toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function statusClass(estado) {
+    if (!estado) return '';
+    const map = {
+      'Por empezar': 's-por-empezar',
+      'En progreso': 's-en-progreso',
+      'Listo':       's-listo',
+      'Done':        's-listo',
+      'Publicado':   's-publicado',
+    };
+    return map[estado] || 's-por-empezar';
+  }
+
+  // ── Skeleton ─────────────────────────────────────────
+  function renderSkeleton() {
+    document.getElementById('grid').innerHTML =
+      Array(9).fill('<div class="skel"></div>').join('');
+    document.getElementById('count').textContent = '—';
+  }
+
+  // ── Render ───────────────────────────────────────────
+  function renderGrid(data) {
+    const grid = document.getElementById('grid');
+    document.getElementById('count').textContent = data.length;
+
+    if (!data.length) {
+      grid.innerHTML = `<div class="state-msg">Sin posts de Instagram aún.<br>Agrega contenido y asigna la plataforma.</div>`;
+      return;
+    }
+
+    grid.innerHTML = data.map(p => `
+      <div class="post" data-id="${p.id}" data-date="${p.fecha || ''}">
+
+        ${p.imageUrl
+          ? `<img src="${p.imageUrl}" alt="${esc(p.name)}" loading="lazy" onerror="this.parentElement.querySelector('.no-img').style.display='flex';this.remove()">`
+          : ''
+        }
+        <div class="no-img" style="display:${p.imageUrl ? 'none' : 'flex'}">
+          <svg width="28" height="28" fill="none" stroke="var(--text-muted)" stroke-width="1.2" viewBox="0 0 24 24">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+            <circle cx="8.5" cy="8.5" r="1.5"/>
+            <path d="M21 15l-5-5L5 21"/>
+          </svg>
+        </div>
+
+        ${p.estado ? `<div class="status-badge ${statusClass(p.estado)}">${p.estado}</div>` : ''}
+
+        <div class="overlay">
+          <div class="ov-name">${esc(p.name)}</div>
+          ${p.pilar ? `<div class="ov-pilar">${esc(p.pilar)}</div>` : ''}
+          <div class="ov-date">${formatDate(p.fecha)}</div>
+          <div class="ov-actions">
+            <a class="ov-btn" href="${p.notionUrl}" target="_blank" onclick="event.stopPropagation()">
+              <svg width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                <polyline points="15 3 21 3 21 9"/>
+                <line x1="10" y1="14" x2="21" y2="3"/>
+              </svg>
+              Notion
+            </a>
+            ${p.contenidoUrl ? `
+            <a class="ov-btn" href="${p.contenidoUrl}" target="_blank" onclick="event.stopPropagation()">
+              <svg width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+              </svg>
+              Contenido
+            </a>` : ''}
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    initSortable();
+  }
+
+  function esc(str) {
+    return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Load posts ───────────────────────────────────────
+  async function loadPosts() {
+    if (!DB_ID) {
+      document.getElementById('app').innerHTML = `
+        <div class="setup">
+          <svg width="40" height="40" fill="none" stroke="var(--text-muted)" stroke-width="1.2" viewBox="0 0 24 24">
+            <rect x="2" y="2" width="20" height="20" rx="5"/>
+            <circle cx="12" cy="12" r="4"/>
+            <circle cx="17.5" cy="6.5" r="1" fill="var(--text-muted)" stroke="none"/>
+          </svg>
+          <h2>Falta el ID de la base de datos</h2>
+          <p>Agrega <code>?db=TU_DATABASE_ID</code> a la URL.<br><br>
+          Ejemplo:<br><code>https://tu-app.vercel.app?db=abc123</code></p>
+        </div>`;
+      return;
+    }
+
+    const icon = document.getElementById('refresh-icon');
+    icon.classList.add('spinning');
+    renderSkeleton();
+
+    try {
+      const res  = await fetch(`/api/posts?db=${DB_ID}&sort=${sortDir}`);
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      posts = data.posts;
+      renderGrid(posts);
+    } catch (err) {
+      document.getElementById('grid').innerHTML =
+        `<div class="state-msg error">Error al cargar: ${err.message}</div>`;
+    } finally {
+      icon.classList.remove('spinning');
+    }
+  }
+
+  // ── Drag & Drop ──────────────────────────────────────
+  function initSortable() {
+    const grid = document.getElementById('grid');
+    if (sortable) { sortable.destroy(); sortable = null; }
+
+    sortable = Sortable.create(grid, {
+      animation: 160,
+      ghostClass:  'sortable-ghost',
+      chosenClass: 'sortable-chosen',
+      dragClass:   'sortable-drag',
+
+      onEnd: async function (evt) {
+        if (evt.oldIndex === evt.newIndex) return;
+
+        const items = [...grid.querySelectorAll('.post')];
+
+        // After DOM reorder: item at newIndex is the dragged one,
+        // item at oldIndex is what used to be there (now displaced).
+        const draggedEl = items[evt.newIndex];
+        const displacedEl = items[evt.oldIndex];
+
+        const draggedId   = draggedEl.dataset.id;
+        const displacedId = displacedEl.dataset.id;
+
+        const draggedPost   = posts.find(p => p.id === draggedId);
+        const displacedPost = posts.find(p => p.id === displacedId);
+
+        if (!draggedPost || !displacedPost) return;
+
+        const dateA = draggedPost.fecha;
+        const dateB = displacedPost.fecha;
+
+        if (!dateA || !dateB) {
+          showToast('⚠️ Algún post no tiene fecha');
+          return;
+        }
+
+        // Optimistic update
+        draggedPost.fecha   = dateB;
+        displacedPost.fecha = dateA;
+        draggedEl.dataset.date   = dateB;
+        displacedEl.dataset.date = dateA;
+
+        showToast('Guardando en Notion…', 4000);
+
+        try {
+          const [r1, r2] = await Promise.all([
+            fetch('/api/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pageId: draggedId,   newDate: dateB }),
+            }),
+            fetch('/api/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pageId: displacedId, newDate: dateA }),
+            }),
+          ]);
+
+          if (!r1.ok || !r2.ok) throw new Error('Error de red');
+          showToast('✓ Guardado en Notion');
+        } catch {
+          // Revert
+          draggedPost.fecha   = dateA;
+          displacedPost.fecha = dateB;
+          draggedEl.dataset.date   = dateA;
+          displacedEl.dataset.date = dateB;
+          showToast('Error al guardar, recarga la página');
+        }
+      }
+    });
+  }
+
+  // ── Init ─────────────────────────────────────────────
+  loadPosts();
+</script>
+</body>
+</html>
