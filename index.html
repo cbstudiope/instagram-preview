@@ -114,6 +114,14 @@
 
     .icon-btn:hover { background: var(--border); }
 
+    .icon-btn.active {
+      background: var(--text);
+      color: var(--bg);
+      border-color: var(--text);
+    }
+
+    .icon-btn.active:hover { background: var(--text-muted); }
+
     /* ── Grid ── */
     .grid-wrap {
       padding: 10px;
@@ -352,6 +360,12 @@
     <span class="post-count" id="count">—</span>
   </div>
   <div class="header-actions">
+    <button class="icon-btn" id="edit-btn" onclick="toggleEditMode()" title="Editar orden">
+      <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+    </button>
     <button class="icon-btn" onclick="loadPosts()" title="Actualizar">
       <svg id="refresh-icon" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
         <path d="M1 4v6h6"/>
@@ -385,6 +399,7 @@
   let posts     = [];
   let sortDir   = 'desc';
   let sortable  = null;
+  let editMode  = false;
 
   // ── Theme ────────────────────────────────────────────
   const savedTheme = localStorage.getItem('ig-theme') || 'light';
@@ -394,6 +409,20 @@
     const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem('ig-theme', next);
+  }
+
+  // ── Edit mode ────────────────────────────────────────
+  function toggleEditMode() {
+    editMode = !editMode;
+    const btn = document.getElementById('edit-btn');
+    btn.classList.toggle('active', editMode);
+    if (sortable) sortable.option('disabled', !editMode);
+    const grid = document.getElementById('grid');
+    grid.style.cursor = editMode ? 'grab' : 'default';
+    [...grid.querySelectorAll('.post')].forEach(el => {
+      el.style.cursor = editMode ? 'grab' : 'default';
+    });
+    showToast(editMode ? 'Modo edición activado' : 'Cambios guardados');
   }
 
   // ── Toast ────────────────────────────────────────────
@@ -533,6 +562,7 @@
 
     sortable = Sortable.create(grid, {
       animation: 160,
+      disabled:    !editMode,
       ghostClass:  'sortable-ghost',
       chosenClass: 'sortable-chosen',
       dragClass:   'sortable-drag',
