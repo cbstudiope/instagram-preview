@@ -9,16 +9,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  const { pageId, newDate } = req.body;
+  const { pageId, newDate, key } = req.body;
 
   if (!pageId || !newDate) {
     return res.status(400).json({ error: 'Faltan pageId o newDate' });
   }
 
-  const NOTION_KEY = process.env.NOTION_KEY;
+  const NOTION_KEY = key || process.env.NOTION_KEY;
 
   if (!NOTION_KEY) {
-    return res.status(500).json({ error: 'NOTION_KEY no configurada en Vercel' });
+    return res.status(500).json({ error: 'Falta el API key de Notion' });
   }
 
   try {

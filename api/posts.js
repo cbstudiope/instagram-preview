@@ -4,16 +4,16 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { db, sort } = req.query;
+  const { db, sort, key } = req.query;
 
   if (!db) {
     return res.status(400).json({ error: 'Falta el parámetro ?db=DATABASE_ID' });
   }
 
-  const NOTION_KEY = process.env.NOTION_KEY;
+  const NOTION_KEY = key || process.env.NOTION_KEY;
 
   if (!NOTION_KEY) {
-    return res.status(500).json({ error: 'NOTION_KEY no configurada en Vercel' });
+    return res.status(500).json({ error: 'Falta el API key de Notion' });
   }
 
   try {
