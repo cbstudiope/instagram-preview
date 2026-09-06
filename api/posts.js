@@ -16,14 +16,17 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Falta el API key de Notion' });
   }
 
-  try {
-    const response = await fetch(`https://api.notion.com/v1/databases/${db}/query`, {
+  const notionHeaders = {
+    Authorization: `Bearer ${NOTION_KEY}`,
+    'Notion-Version': '2022-06-28',
+    'Content-Type': 'application/json',
+  };
+
+  // Helper: query a known database ID
+  async function queryDatabase(dbId) {
+    const response = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${NOTION_KEY}`,
-        'Notion-Version': '2022-06-28',
-        'Content-Type': 'application/json',
-      },
+      headers: notionHeaders,
       body: JSON.stringify({
         filter: {
           property: 'Plataforma',
@@ -38,11 +41,47 @@ export default async function handler(req, res) {
         page_size: 100,
       }),
     });
+    return { response, data: await response.json() };
+  }
 
+  // Helper: search for a child database inside a page
+  async function findChildDatabase(pageId) {
+    const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+      method: 'GET',
+      headers: notionHeaders,
+    });
+    if (!response.ok) return null;
     const data = await response.json();
+    const dbBlock = (data.results || []).find(
+      (b) => b.type === 'child_database'
+    );
+    return dbBlock ? dbBlock.id : null;
+  }
+
+  try {
+    // First attempt: treat the ID as a database
+    let { response, data } = await queryDatabase(db);
+
+    // If Notion says it can't find it as a database, maybe it's a page containing a DB
+    if (!response.ok && data.code === 'object_not_found') {
+      const childDbId = await findChildDatabase(db);
+      if (childDbId) {
+        const retry = await queryDatabase(childDbId);
+        response = retry.response;
+        data = retry.data;
+      }
+    }
 
     if (!response.ok) {
-      return res.status(response.status).json({ error: data.message || 'Error de Notion' });
+      const msg = data.message || 'Error de Notion';
+      // Friendlier message for the common case
+      if (data.code === 'object_not_found') {
+        return res.status(403).json({
+          error:
+            'No se encontró la base de datos. Asegúrate de haber conectado la integración a tu Content Planner (Paso 3) y de haber pegado la URL correcta (Paso 4).',
+        });
+      }
+      return res.status(response.status).json({ error: msg });
     }
 
     const posts = data.results.map((page) => {
