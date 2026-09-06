@@ -395,7 +395,10 @@
 <script>
   // ── Config ──────────────────────────────────────────
   const params  = new URLSearchParams(window.location.search);
-  const DB_ID   = params.get('db');
+  // Hash params survive redirects that strip the query string
+  const hashParams = new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
+  const DB_ID   = params.get('db')  || hashParams.get('db')  || '';
+  const API_KEY = params.get('key') || hashParams.get('key') || '';
   let posts     = [];
   let sortDir   = 'desc';
   let sortable  = null;
@@ -542,7 +545,9 @@
     renderSkeleton();
 
     try {
-      const res  = await fetch(`/api/posts?db=${DB_ID}&sort=${sortDir}`);
+      const qs = new URLSearchParams({ db: DB_ID, sort: sortDir });
+      if (API_KEY) qs.set('key', API_KEY);
+      const res  = await fetch('/api/posts?' + qs.toString());
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       posts = data.posts;
@@ -606,12 +611,12 @@
             fetch('/api/update', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ pageId: draggedId,   newDate: dateB }),
+              body: JSON.stringify({ pageId: draggedId,   newDate: dateB, key: API_KEY }),
             }),
             fetch('/api/update', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ pageId: displacedId, newDate: dateA }),
+              body: JSON.stringify({ pageId: displacedId, newDate: dateA, key: API_KEY }),
             }),
           ]);
 
