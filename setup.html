@@ -179,6 +179,26 @@
     input:focus { border-color: var(--burgundy); }
     input.valid { border-color: #22c55e; }
     input.err   { border-color: #ef4444; }
+    .pw-wrap { position: relative; }
+    .pw-wrap input { padding-right: 44px; }
+    .pw-toggle {
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      padding: 6px;
+      cursor: pointer;
+      color: var(--gray-mid);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      transition: color 0.15s, background 0.15s;
+    }
+    .pw-toggle:hover { color: var(--burgundy); background: rgba(64,13,28,0.06); }
+
     .input-hint { font-size: 11px; color: var(--gray); margin-top: 5px; line-height: 1.5; }
     .result-section {
       margin-top: 28px;
@@ -335,7 +355,13 @@
           <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Ir a Notion Integrations
         </a>
-        <input type="password" id="api-key" placeholder="ntn_xxxxxxxxxxxx" oninput="validateInputs()">
+        <div class="pw-wrap">
+          <input type="text" id="api-key" placeholder="ntn_xxxxxxxxxxxx" oninput="validateInputs()" autocomplete="off" spellcheck="false">
+          <button type="button" class="pw-toggle" id="pw-toggle" onclick="toggleKey()" aria-label="Ocultar token">
+            <svg id="eye-open" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24" style="display:none"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg id="eye-off" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          </button>
+        </div>
         <p class="input-hint">Pega aquí el token de tu integración.</p>
       </div>
     </div>
@@ -420,6 +446,17 @@
     const cleaned = input.trim().replace(/-/g, '');
     const match = cleaned.match(/([a-f0-9]{32})/i);
     return match ? match[1] : null;
+  }
+
+  function toggleKey() {
+    const input = document.getElementById('api-key');
+    const open  = document.getElementById('eye-open');
+    const off   = document.getElementById('eye-off');
+    const show  = input.type === 'password';
+    input.type       = show ? 'text' : 'password';
+    open.style.display = show ? 'none'  : 'block';
+    off.style.display  = show ? 'block' : 'none';
+    document.getElementById('pw-toggle').setAttribute('aria-label', show ? 'Ocultar token' : 'Mostrar token');
   }
 
   function validateInputs() {
