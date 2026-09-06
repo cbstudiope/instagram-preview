@@ -10,7 +10,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Falta el parámetro ?db=DATABASE_ID' });
   }
 
-  const NOTION_KEY = key || process.env.NOTION_KEY;
+  const usingOwnKey = Boolean(key);
+  const NOTION_KEY  = key || process.env.NOTION_KEY;
 
   if (!NOTION_KEY) {
     return res.status(500).json({ error: 'Falta el API key de Notion' });
@@ -24,12 +25,12 @@ export default async function handler(req, res) {
 
   const sortDir = sort === 'desc' ? 'descending' : 'ascending';
 
-  // Build query body — tries filtered first, falls back to unfiltered
-  async function queryDb(dbId, useFilter) {
-    const body = {
-      page_size: 100,
-      sorts: [{ property: 'Fecha', direction: sortDir }],
-    };
+  // Build query body with configurable filter and sort
+  async function queryDb(dbId, useFilter, useSort) {
+    const body = { page_size: 100 };
+    if (useSort) {
+      body.sorts = [{ property: 'Fecha', direction: sortDir }];
+    }
     if (useFilter) {
       body.filter = {
         property: 'Plataforma',
@@ -43,6 +44,21 @@ export default async function handler(req, res) {
     });
     const data = await response.json();
     return { response, data };
+  }
+
+  // Try all fallback levels for a given DB id
+  async function tryAllLevels(dbId) {
+    // Level 1: filter + sort (ideal)
+    let attempt = await queryDb(dbId, true, true);
+    if (attempt.response.ok) return attempt;
+
+    // Level 2: no filter + sort
+    attempt = await queryDb(dbId, false, true);
+    if (attempt.response.ok) return attempt;
+
+    // Level 3: no filter + no sort (bare minimum, same as test endpoint)
+    attempt = await queryDb(dbId, false, false);
+    return attempt;
   }
 
   // Try to find a child database inside a page (fallback for page IDs)
@@ -76,39 +92,32 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Try with Plataforma filter
-    let { response, data } = await queryDb(db, true);
+    // Try all levels on the given ID
+    let { response, data } = await tryAllLevels(db);
 
-    // 2. If filter causes error, try without filter (property may not exist or have different name)
-    if (!response.ok) {
-      const noFilterAttempt = await queryDb(db, false);
-
-      // 3. If even unfiltered fails and error is object_not_found, try child DB
-      if (!noFilterAttempt.response.ok && noFilterAttempt.data.code === 'object_not_found') {
-        const childDbId = await findChildDatabase(db);
-        if (childDbId) {
-          const childAttempt = await queryDb(childDbId, true);
-          if (childAttempt.response.ok) {
-            response = childAttempt.response;
-            data = childAttempt.data;
-          } else {
-            const childNoFilter = await queryDb(childDbId, false);
-            response = childNoFilter.response;
-            data = childNoFilter.data;
-          }
-        } else {
-          return res.status(403).json({
-            error:
-              'No se encontró la base de datos. Asegúrate de haber conectado la integración a tu Content Planner (Paso 3) y de haber pegado la URL correcta (Paso 4).',
-          });
-        }
-      } else {
-        response = noFilterAttempt.response;
-        data = noFilterAttempt.data;
+    // If all levels fail and it's object_not_found, try child database
+    if (!response.ok && data.code === 'object_not_found') {
+      const childDbId = await findChildDatabase(db);
+      if (childDbId) {
+        const childResult = await tryAllLevels(childDbId);
+        response = childResult.response;
+        data = childResult.data;
       }
     }
 
     if (!response.ok) {
+      if (data.code === 'object_not_found') {
+        if (!usingOwnKey) {
+          return res.status(403).json({
+            error:
+              'El widget no recibió tu token de Notion, así que intentó con el token por defecto (que no tiene acceso a tu base de datos). Vuelve a generar tu link en /setup y asegúrate de copiarlo completo, incluyendo la parte &key=ntn_...',
+          });
+        }
+        return res.status(403).json({
+          error:
+            'Tu integración no tiene acceso a esta base de datos. Abre tu Content Planner en Notion → ··· → Connections → agrega tu integración, y vuelve a cargar.',
+        });
+      }
       return res.status(response.status).json({ error: data.message || 'Error de Notion' });
     }
 
