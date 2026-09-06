@@ -363,13 +363,7 @@
       </div>
     </div>
 
-    <button class="btn btn-large" id="verify-btn" onclick="verify()" disabled style="background:transparent;border:1.5px solid var(--burgundy);color:var(--burgundy);margin-top:32px;">
-      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-      Verificar conexión
-    </button>
-    <div id="verify-status" style="margin-top:12px;font-size:13px;display:none;padding:12px 14px;border-radius:8px;"></div>
-
-    <button class="btn btn-large" id="generate-btn" onclick="generate()" disabled style="margin-top:12px;">
+    <button class="btn btn-large" id="generate-btn" onclick="generate()" disabled>
       <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
       Crear mi widget
     </button>
@@ -443,46 +437,7 @@
     if (dbId) document.getElementById('num-4').classList.add('done');
     else document.getElementById('num-4').classList.remove('done');
 
-    document.getElementById('verify-btn').disabled  = !(keyOk && dbId);
-    document.getElementById('generate-btn').disabled = true; // require verify first
-  }
-
-  async function verify() {
-    const key  = document.getElementById('api-key').value.trim();
-    const dbId = extractDbId(document.getElementById('db-url').value);
-    const statusEl = document.getElementById('verify-status');
-    const btn = document.getElementById('verify-btn');
-
-    btn.disabled = true;
-    btn.innerHTML = '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Verificando...';
-    statusEl.style.display = 'block';
-    statusEl.style.background = 'rgba(64,13,28,0.05)';
-    statusEl.style.color = 'var(--burgundy)';
-    statusEl.textContent = 'Verificando tu integración con Notion...';
-
-    try {
-      const r = await fetch(`/api/test?db=${dbId}&key=${encodeURIComponent(key)}`);
-      const data = await r.json();
-
-      if (data.ok) {
-        statusEl.style.background = 'rgba(34,197,94,0.12)';
-        statusEl.style.color = '#166534';
-        statusEl.innerHTML = '✅ <strong>¡Conexión exitosa!</strong> Tu integración tiene acceso a la base de datos. Ya puedes crear tu widget.';
-        document.getElementById('generate-btn').disabled = false;
-      } else {
-        statusEl.style.background = 'rgba(239,68,68,0.10)';
-        statusEl.style.color = '#991b1b';
-        statusEl.innerHTML = '❌ <strong>' + (data.step === 'token' ? 'Token inválido:' : 'Sin acceso a la base de datos:') + '</strong> ' + data.error;
-        document.getElementById('generate-btn').disabled = true;
-      }
-    } catch(e) {
-      statusEl.style.background = 'rgba(239,68,68,0.10)';
-      statusEl.style.color = '#991b1b';
-      statusEl.textContent = '❌ Error de red: ' + e.message;
-    }
-
-    btn.disabled = false;
-    btn.innerHTML = '<svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Verificar conexión';
+    document.getElementById('generate-btn').disabled = !(keyOk && dbId);
   }
 
   function generate() {
