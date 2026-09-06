@@ -490,7 +490,8 @@
     const dbId = extractDbId(document.getElementById('db-url').value);
     if (!key || !dbId) return;
 
-    const url = BASE_URL + '?db=' + dbId + '&key=' + key;
+    const qs  = new URLSearchParams({ db: dbId, key: key });
+    const url = BASE_URL + '/?' + qs.toString();
     document.getElementById('result-url').textContent = url;
     document.getElementById('result-section').classList.add('visible');
 
