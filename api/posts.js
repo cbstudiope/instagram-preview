@@ -33,8 +33,10 @@ export default async function handler(req, res) {
     }
     if (useFilter) {
       body.filter = {
-        property: 'Plataforma',
-        multi_select: { contains: 'Instagram' },
+        and: [
+          { property: 'Plataforma', multi_select: { contains: 'Instagram' } },
+          { property: 'Cover', files: { is_not_empty: true } },
+        ],
       };
     }
     const response = await fetch(`https://api.notion.com/v1/databases/${dbId}/query`, {
@@ -74,7 +76,8 @@ export default async function handler(req, res) {
   }
 
   function mapPosts(results) {
-    return results.map((page) => {
+    return results
+      .map((page) => {
       const coverFiles = page.properties.Cover?.files || [];
       const imageUrl =
         coverFiles[0]?.file?.url || coverFiles[0]?.external?.url || null;
@@ -88,7 +91,10 @@ export default async function handler(req, res) {
         pilar: page.properties.Pilar?.select?.name || null,
         notionUrl: `https://www.notion.so/${page.id.replace(/-/g, '')}`,
       };
-    });
+      })
+      // Safety net: si la query cayó a un nivel sin filtro, igual excluimos
+      // los posts que no tienen imagen en Cover
+      .filter((post) => Boolean(post.imageUrl));
   }
 
   try {
