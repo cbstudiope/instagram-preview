@@ -125,7 +125,7 @@ export default async function handler(req, res) {
           embedType: 'drive',
           // Bytes crudos del archivo: permite usar un <video> propio en vez
           // del reproductor de Drive (que en iOS duplica los controles).
-          directUrl: `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`,
+          directUrl: `/api/video?id=${id}`,   // pasa por nuestro proxy
         };
       }
     }
