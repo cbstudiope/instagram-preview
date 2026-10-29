@@ -487,6 +487,7 @@
     }
     .media-expand.show { display: flex; }
     .media-expand:hover { background: rgba(0,0,0,0.85); }
+    .media-expand, .modal-close { box-shadow: 0 2px 10px rgba(0,0,0,0.45); }
 
     /* Modo expandido (fallback cuando no hay fullscreen nativo) */
     .modal-media.expanded {
@@ -519,14 +520,16 @@
       }
       .modal-side { border-left: none; border-top: 1px solid var(--border); }
       /* Techo a la media para que el caption no quede aplastado */
-      .modal-media { min-height: 200px; max-height: 42vh; }
-      .modal-media img { max-height: 42vh; }
-      .modal-media .embed-wrap { min-height: 260px; height: 42vh; }
+      .modal-media { min-height: 260px; max-height: 60vh; }
+      .modal-media img { max-height: 60vh; }
+      .modal-media .embed-wrap { min-height: 320px; height: 60vh; }
       .modal-caption { min-height: 90px; font-size: 14px; }
 
       /* Objetivos táctiles más grandes */
-      .modal-close { width: 40px; height: 40px; font-size: 24px; top: 8px; right: 8px; }
-      .media-expand { width: 44px; height: 44px; bottom: 12px; right: 12px; }
+      /* La X arriba a la izquierda: Drive pone sus controles arriba a la derecha */
+      .modal-close { width: 40px; height: 40px; font-size: 24px; top: 8px; left: 8px; right: auto; }
+      /* Maximizar abajo a la izquierda, lejos del volumen/ajustes de Drive */
+      .media-expand { width: 44px; height: 44px; bottom: 12px; left: 12px; right: auto; }
       .media-expand svg { width: 21px; height: 21px; }
       .modal-btn { padding: 11px 15px; font-size: 13px; }
       .modal-actions { gap: 10px; padding: 12px 16px 16px; }
@@ -671,10 +674,13 @@
     const t = estado
       .toLowerCase()
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '');   // quita tildes
-    return (t.includes('aprob') && (t.includes('esper') || t.includes('pendiente') || t.includes('por ')))
-        || t === 'por aprobar'
-        || t === 'en revision'
-        || t.includes('revisar');
+    // Cualquier estado que mencione aprobación SIN decir que ya fue aprobada
+    if (t.includes('aprob')) {
+      const yaAprobado = /\baprobad[oa]\b/.test(t);   // "Aprobado" / "Aprobada"
+      if (!yaAprobado) return true;                     // falta / espera / pendiente / por aprobar...
+      return false;
+    }
+    return t.includes('revisar') || t.includes('revision');
   }
 
   function statusClass(estado) {
