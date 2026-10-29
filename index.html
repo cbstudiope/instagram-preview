@@ -461,7 +461,20 @@
     }
     .modal-btn:hover { background: var(--bg); }
     .modal-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .modal-btn.approve { background: #00a862; border-color: #00a862; color: #fff; font-weight: 600; }
+    .modal-btn.approve:hover { background: #009356; }
+    .modal-btn.approve:disabled { opacity: 0.6; cursor: default; }
     .modal-btn.primary:hover { opacity: 0.9; background: var(--accent); }
+
+    .embed-hint {
+      padding: 9px 14px;
+      background: rgba(255,170,0,0.12);
+      border-top: 1px solid var(--border);
+      font-size: 11.5px; line-height: 1.5;
+      color: var(--text-muted);
+      text-align: center;
+    }
+    .embed-hint a { color: var(--accent); text-decoration: none; font-weight: 600; }
 
     .embed-fallback {
       padding: 32px 24px; text-align: center;
@@ -497,7 +510,26 @@
     }
     .modal-media.expanded .embed-wrap { height: 100%; min-height: 0; }
     .modal-media.expanded img { max-height: 100vh; }
-    .modal-media.expanded .media-expand { bottom: 18px; right: 18px; }
+    /* En pantalla completa el botón va fijo y por encima de todo,
+       respetando el notch/barra de iOS */
+    .modal-media.expanded .media-expand,
+    .modal-media:fullscreen .media-expand {
+      position: fixed;
+      top: calc(env(safe-area-inset-top, 0px) + 14px);
+      right: calc(env(safe-area-inset-right, 0px) + 14px);
+      bottom: auto; left: auto;
+      z-index: 2147483647;
+      width: auto; height: 44px;
+      padding: 0 16px;
+      gap: 7px;
+      border-radius: 22px;
+      background: rgba(0,0,0,0.82);
+      font-size: 13px; font-weight: 600; color: #fff;
+      box-shadow: 0 2px 14px rgba(0,0,0,0.6);
+    }
+    .modal-media.expanded .media-expand .lbl,
+    .modal-media:fullscreen .media-expand .lbl { display: inline; }
+    .media-expand .lbl { display: none; }
 
     /* Fullscreen nativo */
     .modal-media:fullscreen { width: 100vw; height: 100vh; background: #000; }
@@ -520,9 +552,12 @@
       }
       .modal-side { border-left: none; border-top: 1px solid var(--border); }
       /* Techo a la media para que el caption no quede aplastado */
-      .modal-media { min-height: 260px; max-height: 60vh; }
-      .modal-media img { max-height: 60vh; }
-      .modal-media .embed-wrap { min-height: 320px; height: 60vh; }
+      .modal-media { min-height: 240px; max-height: 50vh; }
+      .modal-media img { max-height: 50vh; }
+      .modal-media .embed-wrap { min-height: 300px; height: 50vh; }
+      /* Las acciones nunca se cortan */
+      .modal-actions { flex-shrink: 0; }
+      .modal-side { min-height: 0; }
       .modal-caption { min-height: 90px; font-size: 14px; }
 
       /* Objetivos táctiles más grandes */
@@ -599,6 +634,7 @@
           <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
           <line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>
         </svg>
+        <span class="lbl">Salir</span>
       </button>
     </div>
     <div class="modal-side">
@@ -606,6 +642,7 @@
         <div class="modal-title" id="modal-title"></div>
         <div class="modal-meta" id="modal-meta"></div>
       </div>
+      <div class="embed-hint" id="modal-hint" style="display:none"></div>
       <div class="modal-caption" id="modal-caption"></div>
       <div class="modal-actions" id="modal-actions"></div>
     </div>
@@ -736,24 +773,6 @@
           <div class="ov-name">${esc(p.name)}</div>
           ${p.pilar ? `<div class="ov-pilar">${esc(p.pilar)}</div>` : ''}
           <div class="ov-date">${formatDate(p.fecha)}</div>
-          <div class="ov-actions">
-            <a class="ov-btn" href="${p.notionUrl}" target="_blank" onclick="event.stopPropagation()">
-              <svg width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                <polyline points="15 3 21 3 21 9"/>
-                <line x1="10" y1="14" x2="21" y2="3"/>
-              </svg>
-              Notion
-            </a>
-            ${p.contenidoUrl ? `
-            <a class="ov-btn" href="${p.contenidoUrl}" target="_blank" onclick="event.stopPropagation()">
-              <svg width="9" height="9" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-              </svg>
-              Contenido
-            </a>` : ''}
-          </div>
         </div>
       </div>
     `).join('');
@@ -793,19 +812,65 @@
     document.getElementById('media-expand')
       .classList.toggle('show', Boolean(p.embedUrl || p.imageUrl));
 
+    // Aviso cuando el embed de Canva puede estar bloqueado
+    const hint = document.getElementById('modal-hint');
+    if (p.embedType === 'canva') {
+      hint.innerHTML = `¿No se ve el diseño? En Canva debe estar publicado con <b>Compartir → Insertar</b>. ` +
+        `<a href="${p.contenidoUrl}" target="_blank" rel="noopener">Abrir en Canva</a>`;
+      hint.style.display = 'block';
+    } else {
+      hint.style.display = 'none';
+      hint.innerHTML = '';
+    }
+
     // Acciones
     const actions = [];
+    if (needsApproval(p.estado)) {
+      actions.push(`<button class="modal-btn approve" id="approve-btn" onclick="approvePost('${p.id}')">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Aprobar</button>`);
+    }
     if (p.contenidoUrl) {
       const label = p.embedType === 'canva' ? 'Abrir en Canva'
                   : p.embedType === 'drive' ? 'Abrir en Drive'
                   : 'Abrir contenido';
-      actions.push(`<a class="modal-btn primary" href="${p.contenidoUrl}" target="_blank" rel="noopener">${label}</a>`);
+      const cls = needsApproval(p.estado) ? 'modal-btn' : 'modal-btn primary';
+      actions.push(`<a class="${cls}" href="${p.contenidoUrl}" target="_blank" rel="noopener">${label}</a>`);
     }
     actions.push(`<a class="modal-btn" href="${p.notionUrl}" target="_blank" rel="noopener">Ver en Notion</a>`);
     document.getElementById('modal-actions').innerHTML = actions.join('');
 
     document.getElementById('modal').classList.add('open');
     document.body.style.overflow = 'hidden';
+  }
+
+  // ── Aprobar desde el widget ──────────────────────────
+  async function approvePost(id) {
+    const p = posts.find(x => x.id === id);
+    const btn = document.getElementById('approve-btn');
+    if (!p || !btn) return;
+
+    btn.disabled = true;
+    btn.textContent = 'Aprobando...';
+
+    try {
+      const res = await fetch('/api/approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pageId: id, db: DB_ID, key: API_KEY }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      p.estado = data.estado;              // refleja el nombre real de Notion
+      renderGrid(posts);                   // el tag naranja desaparece
+      closeModal();
+      showToast('Aprobado ✓');
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = 'Aprobar';
+      showToast('No se pudo aprobar: ' + e.message, 4000);
+    }
   }
 
   // ── Pantalla completa de la media ────────────────────
