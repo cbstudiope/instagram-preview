@@ -125,7 +125,6 @@ export default async function handler(req, res) {
           embedType: 'drive',
           // Bytes crudos del archivo: permite usar un <video> propio en vez
           // del reproductor de Drive (que en iOS duplica los controles).
-          directUrl: `/api/video?id=${id}`,   // pasa por nuestro proxy
         };
       }
     }
@@ -167,7 +166,7 @@ export default async function handler(req, res) {
         coverFiles[0]?.file?.url || coverFiles[0]?.external?.url || null
       );
       const contenidoUrl = readLinkProp(page.properties.Contenido);
-      const { embedUrl, embedType, directUrl } = buildEmbed(contenidoUrl);
+      const { embedUrl, embedType } = buildEmbed(contenidoUrl);
       return {
         id: page.id,
         name: page.properties.Name?.title?.[0]?.plain_text || 'Sin título',
@@ -177,7 +176,6 @@ export default async function handler(req, res) {
         contenidoUrl,
         embedUrl,
         embedType,
-        directUrl: directUrl || null,
         estado: page.properties.Estado?.status?.name || null,
         pilar: page.properties.Pilar?.select?.name || null,
         notionUrl: `https://www.notion.so/${page.id.replace(/-/g, '')}`,
