@@ -177,6 +177,37 @@
     .s-en-progreso  { background: rgba(255,190,0,0.92);   color: #333; }
     .s-listo        { background: rgba(0,190,90,0.92);    color: #fff; }
     .s-publicado    { background: rgba(0,149,246,0.92);   color: #fff; }
+    .s-esperando    { background: rgba(255,120,0,0.95);   color: #fff; }
+
+    /* Tag permanente (sin hover) para lo que espera aprobación */
+    .await-tag {
+      position: absolute;
+      top: 7px; right: 7px;
+      z-index: 3;
+      display: flex; align-items: center; gap: 4px;
+      padding: 3px 7px;
+      border-radius: 20px;
+      background: rgba(255,120,0,0.96);
+      color: #fff;
+      font-size: 9px; font-weight: 700;
+      letter-spacing: 0.03em; text-transform: uppercase;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.25);
+      pointer-events: none;
+    }
+    .await-tag::before {
+      content: '';
+      width: 5px; height: 5px; border-radius: 50%;
+      background: #fff;
+      animation: pulse-dot 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.25; }
+    }
+    @media (max-width: 480px) {
+      .await-tag { font-size: 8px; padding: 2px 5px; top: 4px; right: 4px; }
+      .await-tag::before { width: 4px; height: 4px; }
+    }
 
     /* Overlay */
     .overlay {
@@ -437,6 +468,41 @@
       color: var(--text-muted); font-size: 12px; line-height: 1.6;
     }
 
+
+    /* Contenedor interno de la media */
+    .media-content {
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* Botón de pantalla completa */
+    .media-expand {
+      position: absolute; bottom: 10px; right: 10px; z-index: 4;
+      width: 36px; height: 36px;
+      border: none; border-radius: 8px;
+      background: rgba(0,0,0,0.6); color: #fff;
+      display: none; align-items: center; justify-content: center;
+      cursor: pointer; transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .media-expand.show { display: flex; }
+    .media-expand:hover { background: rgba(0,0,0,0.85); }
+
+    /* Modo expandido (fallback cuando no hay fullscreen nativo) */
+    .modal-media.expanded {
+      position: fixed; inset: 0; z-index: 1100;
+      max-height: none; width: 100vw; height: 100vh;
+      background: #000; border-radius: 0;
+    }
+    .modal-media.expanded .embed-wrap { height: 100%; min-height: 0; }
+    .modal-media.expanded img { max-height: 100vh; }
+    .modal-media.expanded .media-expand { bottom: 18px; right: 18px; }
+
+    /* Fullscreen nativo */
+    .modal-media:fullscreen { width: 100vw; height: 100vh; background: #000; }
+    .modal-media:fullscreen .embed-wrap { height: 100%; min-height: 0; }
+    .modal-media:fullscreen img { max-height: 100vh; }
+
     /* El badge dentro del modal es inline, no flotante como en la grilla */
     .modal-meta .status-badge {
       position: static;
@@ -456,7 +522,18 @@
       .modal-media { min-height: 200px; max-height: 42vh; }
       .modal-media img { max-height: 42vh; }
       .modal-media .embed-wrap { min-height: 260px; height: 42vh; }
-      .modal-caption { min-height: 90px; }
+      .modal-caption { min-height: 90px; font-size: 14px; }
+
+      /* Objetivos táctiles más grandes */
+      .modal-close { width: 40px; height: 40px; font-size: 24px; top: 8px; right: 8px; }
+      .media-expand { width: 44px; height: 44px; bottom: 12px; right: 12px; }
+      .media-expand svg { width: 21px; height: 21px; }
+      .modal-btn { padding: 11px 15px; font-size: 13px; }
+      .modal-actions { gap: 10px; padding: 12px 16px 16px; }
+      .modal-title { font-size: 15px; }
+      .icon-btn { width: 38px; height: 38px; }
+      .ov-btn { padding: 7px 11px; font-size: 11px; }
+      .ov-btn svg { width: 12px; height: 12px; }
     }
 
   </style>
@@ -508,7 +585,19 @@
 <div class="modal-backdrop" id="modal" onclick="closeModal(event)">
   <div class="modal" onclick="event.stopPropagation()">
     <button class="modal-close" onclick="closeModal()" aria-label="Cerrar">&times;</button>
-    <div class="modal-media" id="modal-media"></div>
+    <div class="modal-media" id="modal-media-box">
+      <div class="media-content" id="modal-media"></div>
+      <button class="media-expand" id="media-expand" onclick="toggleExpand()" aria-label="Pantalla completa">
+        <svg class="ic-expand" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/>
+          <line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+        <svg class="ic-collapse" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="display:none">
+          <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/>
+          <line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>
+        </svg>
+      </button>
+    </div>
     <div class="modal-side">
       <div class="modal-head">
         <div class="modal-title" id="modal-title"></div>
@@ -575,6 +664,19 @@
     return date.toLocaleDateString('es-PE', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
+  // ¿Este estado requiere aprobación del cliente?
+  // Acepta variantes: "Esperando aprobación", "Por aprobar", "Pendiente de aprobación"...
+  function needsApproval(estado) {
+    if (!estado) return false;
+    const t = estado
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');   // quita tildes
+    return (t.includes('aprob') && (t.includes('esper') || t.includes('pendiente') || t.includes('por ')))
+        || t === 'por aprobar'
+        || t === 'en revision'
+        || t.includes('revisar');
+  }
+
   function statusClass(estado) {
     if (!estado) return '';
     const map = {
@@ -583,8 +685,10 @@
       'Listo':       's-listo',
       'Done':        's-listo',
       'Publicado':   's-publicado',
+      'Aprobado':    's-listo',
     };
-    return map[estado] || 's-por-empezar';
+    if (map[estado]) return map[estado];
+    return needsApproval(estado) ? 's-esperando' : 's-por-empezar';
   }
 
   // ── Skeleton ─────────────────────────────────────────
@@ -619,8 +723,10 @@
           </svg>
         </div>
 
+        ${needsApproval(p.estado) ? `<div class="await-tag">Por aprobar</div>` : ''}
+
         <div class="overlay">
-          ${p.estado ? `<div class="status-badge ${statusClass(p.estado)}">${p.estado}</div>` : ''}
+          ${p.estado ? `<div class="status-badge ${statusClass(p.estado)}">${esc(p.estado)}</div>` : ''}
           <div class="ov-name">${esc(p.name)}</div>
           ${p.pilar ? `<div class="ov-pilar">${esc(p.pilar)}</div>` : ''}
           <div class="ov-date">${formatDate(p.fecha)}</div>
@@ -678,6 +784,8 @@
     } else {
       media.innerHTML = '<div class="embed-fallback">Sin contenido para previsualizar.</div>';
     }
+    document.getElementById('media-expand')
+      .classList.toggle('show', Boolean(p.embedUrl || p.imageUrl));
 
     // Acciones
     const actions = [];
@@ -694,15 +802,62 @@
     document.body.style.overflow = 'hidden';
   }
 
+  // ── Pantalla completa de la media ────────────────────
+  function syncExpandIcons() {
+    const box = document.getElementById('modal-media-box');
+    const on  = box.classList.contains('expanded') || document.fullscreenElement === box;
+    box.querySelector('.ic-expand').style.display   = on ? 'none' : 'block';
+    box.querySelector('.ic-collapse').style.display = on ? 'block' : 'none';
+    document.getElementById('media-expand')
+      .setAttribute('aria-label', on ? 'Salir de pantalla completa' : 'Pantalla completa');
+  }
+
+  function toggleExpand() {
+    const box = document.getElementById('modal-media-box');
+
+    // Si ya está expandido de cualquiera de las dos formas, salir
+    if (document.fullscreenElement === box || box.classList.contains('expanded')) {
+      exitExpand();
+      return;
+    }
+
+    // Intentar fullscreen nativo; si el navegador no lo permite
+    // (iOS, o un iframe sin permiso), usar el modo expandido por CSS
+    const req = box.requestFullscreen || box.webkitRequestFullscreen;
+    if (req) {
+      Promise.resolve(req.call(box))
+        .then(syncExpandIcons)
+        .catch(() => { box.classList.add('expanded'); syncExpandIcons(); });
+    } else {
+      box.classList.add('expanded');
+      syncExpandIcons();
+    }
+  }
+
+  function exitExpand() {
+    const box = document.getElementById('modal-media-box');
+    box.classList.remove('expanded');
+    if (document.fullscreenElement) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    }
+    syncExpandIcons();
+  }
+
+  document.addEventListener('fullscreenchange', syncExpandIcons);
+
   function closeModal(e) {
     if (e && e.target !== e.currentTarget) return;   // solo al clickear el fondo
+    exitExpand();
     document.getElementById('modal').classList.remove('open');
     document.getElementById('modal-media').innerHTML = '';   // detiene el video
     document.body.style.overflow = '';
   }
 
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') closeModal();
+    if (e.key !== 'Escape') return;
+    const box = document.getElementById('modal-media-box');
+    if (box.classList.contains('expanded')) exitExpand();   // 1ro salir de pantalla completa
+    else closeModal();                                      // 2do cerrar el modal
   });
 
   function esc(str) {
