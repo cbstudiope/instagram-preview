@@ -344,6 +344,121 @@
       #grid { gap: 2px; }
       .header-title { font-size: 12px; }
     }
+
+    /* ── Modal estilo Instagram ───────────────────── */
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.75);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+      backdrop-filter: blur(2px);
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 940px;
+      max-height: 88vh;
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(300px, 1fr);
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.3);
+    }
+
+    .modal-close {
+      position: absolute; top: 10px; right: 12px; z-index: 3;
+      width: 30px; height: 30px;
+      border: none; border-radius: 50%;
+      background: rgba(0,0,0,0.55); color: #fff;
+      font-size: 19px; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s;
+    }
+    .modal-close:hover { background: rgba(0,0,0,0.8); }
+
+    .modal-media {
+      background: #000;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 320px;
+      position: relative;
+    }
+    .modal-media iframe,
+    .modal-media img { width: 100%; height: 100%; border: none; display: block; }
+    .modal-media img { object-fit: contain; max-height: 88vh; }
+    .modal-media .embed-wrap { width: 100%; height: 100%; min-height: 480px; }
+
+    .modal-side {
+      display: flex; flex-direction: column;
+      min-width: 0;
+      border-left: 1px solid var(--border);
+    }
+    .modal-head {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-title {
+      font-size: 14px; font-weight: 600; color: var(--text);
+      line-height: 1.35; margin-bottom: 6px; word-break: break-word;
+    }
+    .modal-meta {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      font-size: 11px; color: var(--text-muted);
+    }
+    .modal-caption {
+      flex: 1; overflow-y: auto;
+      padding: 16px 18px;
+      font-size: 13px; line-height: 1.65; color: var(--text);
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .modal-caption .empty { color: var(--text-muted); font-style: italic; }
+
+    .modal-actions {
+      padding: 12px 18px 16px;
+      border-top: 1px solid var(--border);
+      display: flex; gap: 8px; flex-wrap: wrap;
+    }
+    .modal-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 12px; border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent; color: var(--text);
+      font-size: 12px; text-decoration: none; cursor: pointer;
+      transition: background 0.15s;
+    }
+    .modal-btn:hover { background: var(--bg); }
+    .modal-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .modal-btn.primary:hover { opacity: 0.9; background: var(--accent); }
+
+    .embed-fallback {
+      padding: 32px 24px; text-align: center;
+      color: var(--text-muted); font-size: 12px; line-height: 1.6;
+    }
+
+    /* El badge dentro del modal es inline, no flotante como en la grilla */
+    .modal-meta .status-badge {
+      position: static;
+      top: auto; left: auto; right: auto; bottom: auto;
+      transform: none;
+      margin: 0;
+    }
+
+    @media (max-width: 820px) {
+      .modal {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr);
+        max-height: 92vh;
+      }
+      .modal-side { border-left: none; border-top: 1px solid var(--border); }
+      /* Techo a la media para que el caption no quede aplastado */
+      .modal-media { min-height: 200px; max-height: 42vh; }
+      .modal-media img { max-height: 42vh; }
+      .modal-media .embed-wrap { min-height: 260px; height: 42vh; }
+      .modal-caption { min-height: 90px; }
+    }
+
   </style>
 </head>
 <body>
@@ -390,6 +505,21 @@
 </div>
 
 <!-- Toast -->
+<div class="modal-backdrop" id="modal" onclick="closeModal(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <button class="modal-close" onclick="closeModal()" aria-label="Cerrar">&times;</button>
+    <div class="modal-media" id="modal-media"></div>
+    <div class="modal-side">
+      <div class="modal-head">
+        <div class="modal-title" id="modal-title"></div>
+        <div class="modal-meta" id="modal-meta"></div>
+      </div>
+      <div class="modal-caption" id="modal-caption"></div>
+      <div class="modal-actions" id="modal-actions"></div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -475,7 +605,7 @@
     }
 
     grid.innerHTML = data.map(p => `
-      <div class="post" data-id="${p.id}" data-date="${p.fecha || ''}">
+      <div class="post" data-id="${p.id}" data-date="${p.fecha || ''}" onclick="openPost('${p.id}')">
 
         ${p.imageUrl
           ? `<img src="${p.imageUrl}" alt="${esc(p.name)}" loading="lazy" onerror="this.parentElement.querySelector('.no-img').style.display='flex';this.remove()">`
@@ -518,6 +648,62 @@
 
     initSortable();
   }
+
+  // ── Modal ────────────────────────────────────────────
+  function openPost(id) {
+    if (editMode) return;                       // no abrir mientras se arrastra
+    const p = posts.find(x => x.id === id);
+    if (!p) return;
+
+    document.getElementById('modal-title').textContent = p.name;
+
+    const meta = [];
+    if (p.fecha)  meta.push(formatDate(p.fecha));
+    if (p.pilar)  meta.push(esc(p.pilar));
+    document.getElementById('modal-meta').innerHTML =
+      (p.estado ? `<span class="status-badge ${statusClass(p.estado)}">${esc(p.estado)}</span>` : '') +
+      meta.map(m => `<span>${m}</span>`).join('<span>·</span>');
+
+    document.getElementById('modal-caption').innerHTML = p.caption
+      ? esc(p.caption)
+      : '<span class="empty">Sin caption todavía.</span>';
+
+    // Media: embed si se pudo convertir, si no la portada
+    const media = document.getElementById('modal-media');
+    if (p.embedUrl) {
+      media.innerHTML = `<iframe class="embed-wrap" src="${p.embedUrl}"
+        allow="fullscreen; autoplay; encrypted-media" allowfullscreen loading="lazy"></iframe>`;
+    } else if (p.imageUrl) {
+      media.innerHTML = `<img src="${p.imageUrl}" alt="${esc(p.name)}">`;
+    } else {
+      media.innerHTML = '<div class="embed-fallback">Sin contenido para previsualizar.</div>';
+    }
+
+    // Acciones
+    const actions = [];
+    if (p.contenidoUrl) {
+      const label = p.embedType === 'canva' ? 'Abrir en Canva'
+                  : p.embedType === 'drive' ? 'Abrir en Drive'
+                  : 'Abrir contenido';
+      actions.push(`<a class="modal-btn primary" href="${p.contenidoUrl}" target="_blank" rel="noopener">${label}</a>`);
+    }
+    actions.push(`<a class="modal-btn" href="${p.notionUrl}" target="_blank" rel="noopener">Ver en Notion</a>`);
+    document.getElementById('modal-actions').innerHTML = actions.join('');
+
+    document.getElementById('modal').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeModal(e) {
+    if (e && e.target !== e.currentTarget) return;   // solo al clickear el fondo
+    document.getElementById('modal').classList.remove('open');
+    document.getElementById('modal-media').innerHTML = '';   // detiene el video
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeModal();
+  });
 
   function esc(str) {
     return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
