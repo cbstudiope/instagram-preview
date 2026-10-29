@@ -904,9 +904,9 @@
           onerror="driveFallback('${p.id}')"></video>`;
         expand.classList.remove('show');
 
-        // Si en 8s no logro leer el video, Drive devolvio otra cosa: me repliego
+        // Margen amplio: el proxy tarda mas en arrancar que una URL directa
         const v = media.querySelector('video');
-        const t = setTimeout(() => driveFallback(p.id), 8000);
+        const t = setTimeout(() => driveFallback(p.id), 20000);
         v.addEventListener('loadedmetadata', () => clearTimeout(t), { once: true });
         return;
       }
