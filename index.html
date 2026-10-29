@@ -474,6 +474,32 @@
 
 
     /* Contenedor interno de la media */
+    .media-poster {
+      position: relative; width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .media-poster img { width: 100%; height: 100%; object-fit: contain; }
+    .play-btn {
+      position: absolute; inset: 0; margin: auto;
+      width: 66px; height: 66px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.55);
+      border: 2px solid rgba(255,255,255,0.92);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .play-btn:hover { transform: scale(1.06); background: rgba(0,0,0,0.72); }
+    .play-btn svg { margin-left: 4px; }
+    .play-hint {
+      position: absolute; bottom: 12px; left: 0; right: 0;
+      text-align: center; font-size: 11px;
+      color: rgba(255,255,255,0.85);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+      pointer-events: none;
+    }
+
     .media-content {
       width: 100%; height: 100%;
       display: flex; align-items: center; justify-content: center;
@@ -791,18 +817,9 @@
       ? esc(p.caption)
       : '<span class="empty">Sin caption todavía.</span>';
 
-    // Media: embed si se pudo convertir, si no la portada
-    const media = document.getElementById('modal-media');
-    if (p.embedUrl) {
-      media.innerHTML = `<iframe class="embed-wrap" src="${p.embedUrl}"
-        allow="fullscreen; autoplay; encrypted-media" allowfullscreen loading="lazy"></iframe>`;
-    } else if (p.imageUrl) {
-      media.innerHTML = `<img src="${p.imageUrl}" alt="${esc(p.name)}">`;
-    } else {
-      media.innerHTML = '<div class="embed-fallback">Sin contenido para previsualizar.</div>';
-    }
-    document.getElementById('media-expand')
-      .classList.toggle('show', Boolean(p.embedUrl || p.imageUrl));
+    // Media: en chico va la portada; el reproductor solo en pantalla completa
+    currentPost = p;
+    renderMedia(p, false);
 
     // Acciones
     const actions = [];
@@ -824,6 +841,44 @@
 
     document.getElementById('modal').classList.add('open');
     document.body.style.overflow = 'hidden';
+  }
+
+  // ── Media del modal ──────────────────────────────────
+  // El iframe del reproductor solo se crea en pantalla completa: en el espacio
+  // chico Drive encima sus controles, asi que ahi mostramos solo la portada.
+  let currentPost = null;
+
+  function renderMedia(p, withEmbed) {
+    const media  = document.getElementById('modal-media');
+    const expand = document.getElementById('media-expand');
+
+    if (p.embedUrl && !withEmbed) {
+      media.innerHTML = `
+        <div class="media-poster">
+          ${p.imageUrl ? `<img src="${p.imageUrl}" alt="${esc(p.name)}">` : ''}
+          <button class="play-btn" onclick="playEmbed()" aria-label="Reproducir">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><polygon points="6 4 20 12 6 20"/></svg>
+          </button>
+          <div class="play-hint">Toca para ver en pantalla completa</div>
+        </div>`;
+      expand.classList.remove('show');          // el play ya cumple esa funcion
+    } else if (p.embedUrl) {
+      media.innerHTML = `<iframe class="embed-wrap" src="${p.embedUrl}"
+        allow="fullscreen; autoplay; encrypted-media" allowfullscreen></iframe>`;
+      expand.classList.add('show');
+    } else if (p.imageUrl) {
+      media.innerHTML = `<img src="${p.imageUrl}" alt="${esc(p.name)}">`;
+      expand.classList.add('show');
+    } else {
+      media.innerHTML = '<div class="embed-fallback">Sin contenido para previsualizar.</div>';
+      expand.classList.remove('show');
+    }
+  }
+
+  function playEmbed() {
+    if (!currentPost) return;
+    renderMedia(currentPost, true);   // recien aqui se carga el reproductor
+    toggleExpand();                   // y se abre a pantalla completa
   }
 
   // ── Aprobar desde el widget ──────────────────────────
@@ -894,9 +949,19 @@
       (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     }
     syncExpandIcons();
+    // Volver a la portada para que la vista chica quede limpia
+    if (currentPost && currentPost.embedUrl) renderMedia(currentPost, false);
   }
 
-  document.addEventListener('fullscreenchange', syncExpandIcons);
+  document.addEventListener('fullscreenchange', () => {
+    syncExpandIcons();
+    // Si sale de pantalla completa con el gesto del navegador
+    const box = document.getElementById('modal-media-box');
+    if (!document.fullscreenElement && !box.classList.contains('expanded')
+        && currentPost && currentPost.embedUrl) {
+      renderMedia(currentPost, false);
+    }
+  });
 
   function closeModal(e) {
     if (e && e.target !== e.currentTarget) return;   // solo al clickear el fondo
