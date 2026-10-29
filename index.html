@@ -420,7 +420,15 @@
     .modal-media iframe,
     .modal-media img { width: 100%; height: 100%; border: none; display: block; }
     .modal-media img { object-fit: contain; max-height: 88vh; }
-    .modal-media .embed-wrap { width: 100%; height: 100%; min-height: 480px; }
+    .modal-media .embed-wrap { width: 100%; height: 100%; min-height: 0; border: 0; display: block; }
+
+    /* El iframe toma la proporcion real del contenido para que Drive
+       no haga letterbox (que es lo que duplica sus controles) */
+    .embed-ratio {
+      height: 100%; width: auto;
+      max-width: 100%;
+      margin: auto;
+    }
 
     .modal-side {
       display: flex; flex-direction: column;
@@ -525,7 +533,7 @@
       max-height: none; width: 100vw; height: 100vh;
       background: #000; border-radius: 0;
     }
-    .modal-media.expanded .embed-wrap { height: 100%; min-height: 0; }
+    .modal-media.expanded .embed-ratio { height: 100%; max-width: 100vw; }
     .modal-media.expanded img { max-height: 100vh; }
     /* En pantalla completa el botón va fijo y por encima de todo,
        respetando el notch/barra de iOS */
@@ -550,7 +558,7 @@
 
     /* Fullscreen nativo */
     .modal-media:fullscreen { width: 100vw; height: 100vh; background: #000; }
-    .modal-media:fullscreen .embed-wrap { height: 100%; min-height: 0; }
+    .modal-media:fullscreen .embed-ratio { height: 100%; max-width: 100vw; }
     .modal-media:fullscreen img { max-height: 100vh; }
 
     /* El badge dentro del modal es inline, no flotante como en la grilla */
@@ -569,11 +577,11 @@
       }
       .modal-side { border-left: none; border-top: 1px solid var(--border); }
       /* Techo a la media para que el caption no quede aplastado */
-      .modal-media { min-height: 240px; max-height: 58vh; }
+      .modal-media { height: 58vh; min-height: 240px; }
       .modal-media img { max-height: 58vh; }
       /* Sin height fijo: forzar una altura que no coincide con la proporcion
          del video hace que Drive haga letterbox y duplique la barra */
-      .modal-media .embed-wrap { min-height: 300px; height: auto; }
+
       /* Las acciones nunca se cortan */
       .modal-actions { flex-shrink: 0; }
       .modal-side { min-height: 0; }
@@ -848,6 +856,14 @@
   // chico Drive encima sus controles, asi que ahi mostramos solo la portada.
   let currentPost = null;
 
+  // Guarda la proporcion real de la portada para darsela al iframe
+  function cacheRatio(id, img) {
+    const p = posts.find(x => x.id === id);
+    if (p && img.naturalWidth && img.naturalHeight) {
+      p._ar = img.naturalWidth + ' / ' + img.naturalHeight;
+    }
+  }
+
   function renderMedia(p, withEmbed) {
     const media  = document.getElementById('modal-media');
     const expand = document.getElementById('media-expand');
@@ -855,7 +871,7 @@
     if (p.embedUrl && !withEmbed) {
       media.innerHTML = `
         <div class="media-poster">
-          ${p.imageUrl ? `<img src="${p.imageUrl}" alt="${esc(p.name)}">` : ''}
+          ${p.imageUrl ? `<img src="${p.imageUrl}" alt="${esc(p.name)}" onload="cacheRatio('${p.id}', this)">` : ''}
           <button class="play-btn" onclick="playEmbed()" aria-label="Reproducir">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><polygon points="6 4 20 12 6 20"/></svg>
           </button>
@@ -863,8 +879,12 @@
         </div>`;
       expand.classList.remove('show');          // el play ya cumple esa funcion
     } else if (p.embedUrl) {
-      media.innerHTML = `<iframe class="embed-wrap" src="${p.embedUrl}"
-        allow="fullscreen; autoplay; encrypted-media" allowfullscreen></iframe>`;
+      // Proporcion real de la portada; si no la conocemos, vertical por defecto
+      const ar = p._ar || (p.embedType === 'drive' ? '9 / 16' : '4 / 5');
+      media.innerHTML = `<div class="embed-ratio" style="aspect-ratio:${ar}">
+        <iframe class="embed-wrap" src="${p.embedUrl}"
+          allow="fullscreen; autoplay; encrypted-media" allowfullscreen></iframe>
+      </div>`;
       expand.classList.add('show');
     } else if (p.imageUrl) {
       media.innerHTML = `<img src="${p.imageUrl}" alt="${esc(p.name)}">`;
@@ -877,9 +897,8 @@
 
   function playEmbed() {
     if (!currentPost) return;
-    renderMedia(currentPost, true);   // recien aqui se carga el reproductor
-    toggleExpand();                   // y se abre a pantalla completa
-  }
+    renderMedia(currentPost, true);   // carga el reproductor en la vista chica
+  }                                   // el boton de expandir queda disponible
 
   // ── Aprobar desde el widget ──────────────────────────
   async function approvePost(id) {
@@ -949,19 +968,9 @@
       (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     }
     syncExpandIcons();
-    // Volver a la portada para que la vista chica quede limpia
-    if (currentPost && currentPost.embedUrl) renderMedia(currentPost, false);
   }
 
-  document.addEventListener('fullscreenchange', () => {
-    syncExpandIcons();
-    // Si sale de pantalla completa con el gesto del navegador
-    const box = document.getElementById('modal-media-box');
-    if (!document.fullscreenElement && !box.classList.contains('expanded')
-        && currentPost && currentPost.embedUrl) {
-      renderMedia(currentPost, false);
-    }
-  });
+  document.addEventListener('fullscreenchange', syncExpandIcons);
 
   function closeModal(e) {
     if (e && e.target !== e.currentTarget) return;   // solo al clickear el fondo
