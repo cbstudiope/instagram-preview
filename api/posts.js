@@ -75,18 +75,82 @@ export default async function handler(req, res) {
     return block ? block.id : null;
   }
 
+  // Convierte links de Google Drive en URLs de imagen directa.
+  // Los links normales de Drive (/file/d/ID/view) devuelven una página HTML,
+  // no una imagen, así que un <img> no los puede mostrar.
+  function normalizeImageUrl(url) {
+    if (!url) return null;
+
+    // Ya es una imagen directa de Google — no tocar
+    if (/googleusercontent\.com/i.test(url)) return url;
+
+    // Solo transformamos links de Drive / Docs
+    if (!/^https?:\/\/(drive|docs)\.google\.com\//i.test(url)) return url;
+
+    const id =
+      (url.match(/\/file\/d\/([-\w]{10,})/) || [])[1] ||   // /file/d/ID/view
+      (url.match(/[?&]id=([-\w]{10,})/) || [])[1] ||        // ?id=ID (open, uc, thumbnail)
+      (url.match(/\/d\/([-\w]{10,})/) || [])[1];            // /d/ID
+
+    return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w1000` : url;
+  }
+
+  // Convierte el link de Contenido en una URL que se pueda cargar en un iframe.
+  // Canva bloquea sus páginas normales en iframe: solo funciona la variante ?embed.
+  // Drive usa /preview como endpoint oficial de reproducción.
+  function buildEmbed(url) {
+    if (!url) return { embedUrl: null, embedType: null };
+
+    const canva = url.match(/canva\.com\/design\/([-\w]+)(?:\/([-\w]+))?/i);
+    if (canva) {
+      const token = canva[2] && !/^(view|edit|watch)$/i.test(canva[2]) ? canva[2] : null;
+      const path  = token ? `${canva[1]}/${token}` : canva[1];
+      return { embedUrl: `https://www.canva.com/design/${path}/view?embed`, embedType: 'canva' };
+    }
+
+    if (/^https?:\/\/(drive|docs)\.google\.com\//i.test(url)) {
+      const id =
+        (url.match(/\/file\/d\/([-\w]{10,})/) || [])[1] ||
+        (url.match(/[?&]id=([-\w]{10,})/) || [])[1] ||
+        (url.match(/\/d\/([-\w]{10,})/) || [])[1];
+      if (id) return { embedUrl: `https://drive.google.com/file/d/${id}/preview`, embedType: 'drive' };
+    }
+
+    const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([-\w]{6,})/i);
+    if (yt) return { embedUrl: `https://www.youtube-nocookie.com/embed/${yt[1]}`, embedType: 'video' };
+
+    const vimeo = url.match(/vimeo\.com\/(\d{6,})/i);
+    if (vimeo) return { embedUrl: `https://player.vimeo.com/video/${vimeo[1]}`, embedType: 'video' };
+
+    return { embedUrl: null, embedType: 'link' };
+  }
+
+  function readCaption(props) {
+    const p = props.Caption || props.caption;
+    if (!p) return null;
+    const parts = p.rich_text || p.title || [];
+    const text = parts.map((t) => t.plain_text).join('').trim();
+    return text || null;
+  }
+
   function mapPosts(results) {
     return results
       .map((page) => {
       const coverFiles = page.properties.Cover?.files || [];
-      const imageUrl =
-        coverFiles[0]?.file?.url || coverFiles[0]?.external?.url || null;
+      const imageUrl = normalizeImageUrl(
+        coverFiles[0]?.file?.url || coverFiles[0]?.external?.url || null
+      );
+      const contenidoUrl = page.properties.Contenido?.url || null;
+      const { embedUrl, embedType } = buildEmbed(contenidoUrl);
       return {
         id: page.id,
         name: page.properties.Name?.title?.[0]?.plain_text || 'Sin título',
         imageUrl,
+        caption: readCaption(page.properties),
         fecha: page.properties.Fecha?.date?.start || null,
-        contenidoUrl: page.properties.Contenido?.url || null,
+        contenidoUrl,
+        embedUrl,
+        embedType,
         estado: page.properties.Estado?.status?.name || null,
         pilar: page.properties.Pilar?.select?.name || null,
         notionUrl: `https://www.notion.so/${page.id.replace(/-/g, '')}`,
