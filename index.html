@@ -873,14 +873,6 @@
     }
   }
 
-  // Drive no entrego un video reproducible: volvemos a la portada con enlace
-  function driveFallback(id) {
-    const p = posts.find(x => x.id === id);
-    if (!p || p._driveFailed) return;
-    p._driveFailed = true;
-    if (currentPost && currentPost.id === id) renderMedia(p, false);
-  }
-
   function renderMedia(p, withEmbed) {
     const media  = document.getElementById('modal-media');
     const expand = document.getElementById('media-expand');
@@ -894,23 +886,9 @@
       return;
     }
 
-    // Drive: intentamos reproducir el archivo directo con nuestro propio <video>
-    // (el reproductor de Drive duplica controles en iOS). Si no carga, portada.
+    // Drive: su reproductor duplica controles en iOS y el proxy resulto lento,
+    // asi que mostramos la portada y el video se abre en Drive.
     if (p.embedType === 'drive') {
-      if (p.directUrl && !p._driveFailed) {
-        media.innerHTML = `<video class="native-video" src="${p.directUrl}"
-          controls playsinline preload="metadata"
-          ${p.imageUrl ? `poster="${p.imageUrl}"` : ''}
-          onerror="driveFallback('${p.id}')"></video>`;
-        expand.classList.remove('show');
-
-        // Margen amplio: el proxy tarda mas en arrancar que una URL directa
-        const v = media.querySelector('video');
-        const t = setTimeout(() => driveFallback(p.id), 20000);
-        v.addEventListener('loadedmetadata', () => clearTimeout(t), { once: true });
-        return;
-      }
-
       media.innerHTML = `
         <div class="media-poster">
           ${p.imageUrl ? `<img src="${p.imageUrl}" alt="${esc(p.name)}">` : ''}
