@@ -101,6 +101,12 @@ export default async function handler(req, res) {
   function buildEmbed(url) {
     if (!url) return { embedUrl: null, embedType: null };
 
+    // Archivo de video directo (subido a Notion, o cualquier URL que termine en video):
+    // lo reproducimos con un <video> propio, sin iframe y con un solo juego de controles.
+    if (/\.(mp4|mov|webm|m4v)(\?|$)/i.test(url)) {
+      return { embedUrl: url, embedType: 'file-video' };
+    }
+
     const canva = url.match(/canva\.com\/design\/([-\w]+)(?:\/([-\w]+))?/i);
     if (canva) {
       const token = canva[2] && !/^(view|edit|watch)$/i.test(canva[2]) ? canva[2] : null;
@@ -113,7 +119,15 @@ export default async function handler(req, res) {
         (url.match(/\/file\/d\/([-\w]{10,})/) || [])[1] ||
         (url.match(/[?&]id=([-\w]{10,})/) || [])[1] ||
         (url.match(/\/d\/([-\w]{10,})/) || [])[1];
-      if (id) return { embedUrl: `https://drive.google.com/file/d/${id}/preview`, embedType: 'drive' };
+      if (id) {
+        return {
+          embedUrl: `https://drive.google.com/file/d/${id}/preview`,
+          embedType: 'drive',
+          // Bytes crudos del archivo: permite usar un <video> propio en vez
+          // del reproductor de Drive (que en iOS duplica los controles).
+          directUrl: `https://drive.usercontent.google.com/download?id=${id}&export=download&confirm=t`,
+        };
+      }
     }
 
     const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([-\w]{6,})/i);
@@ -123,6 +137,18 @@ export default async function handler(req, res) {
     if (vimeo) return { embedUrl: `https://player.vimeo.com/video/${vimeo[1]}`, embedType: 'video' };
 
     return { embedUrl: null, embedType: 'link' };
+  }
+
+  // Lee un link sin importar si la propiedad es tipo URL, Archivos y multimedia,
+  // o texto con un enlace pegado dentro.
+  function readLinkProp(prop) {
+    if (!prop) return null;
+    if (prop.url) return prop.url;                         // tipo URL
+    const f = (prop.files || [])[0];                       // tipo Archivos y multimedia
+    if (f) return f.external?.url || f.file?.url || null;
+    const text = (prop.rich_text || []).map((t) => t.plain_text).join('').trim();
+    if (text && /^https?:\/\//i.test(text)) return text;   // tipo texto con URL
+    return null;
   }
 
   function readCaption(props) {
@@ -140,8 +166,8 @@ export default async function handler(req, res) {
       const imageUrl = normalizeImageUrl(
         coverFiles[0]?.file?.url || coverFiles[0]?.external?.url || null
       );
-      const contenidoUrl = page.properties.Contenido?.url || null;
-      const { embedUrl, embedType } = buildEmbed(contenidoUrl);
+      const contenidoUrl = readLinkProp(page.properties.Contenido);
+      const { embedUrl, embedType, directUrl } = buildEmbed(contenidoUrl);
       return {
         id: page.id,
         name: page.properties.Name?.title?.[0]?.plain_text || 'Sin título',
@@ -151,6 +177,7 @@ export default async function handler(req, res) {
         contenidoUrl,
         embedUrl,
         embedType,
+        directUrl: directUrl || null,
         estado: page.properties.Estado?.status?.name || null,
         pilar: page.properties.Pilar?.select?.name || null,
         notionUrl: `https://www.notion.so/${page.id.replace(/-/g, '')}`,
