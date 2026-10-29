@@ -466,16 +466,6 @@
     .modal-btn.approve:disabled { opacity: 0.6; cursor: default; }
     .modal-btn.primary:hover { opacity: 0.9; background: var(--accent); }
 
-    .embed-hint {
-      padding: 9px 14px;
-      background: rgba(255,170,0,0.12);
-      border-top: 1px solid var(--border);
-      font-size: 11.5px; line-height: 1.5;
-      color: var(--text-muted);
-      text-align: center;
-    }
-    .embed-hint a { color: var(--accent); text-decoration: none; font-weight: 600; }
-
     .embed-fallback {
       padding: 32px 24px; text-align: center;
       color: var(--text-muted); font-size: 12px; line-height: 1.6;
@@ -642,7 +632,6 @@
         <div class="modal-title" id="modal-title"></div>
         <div class="modal-meta" id="modal-meta"></div>
       </div>
-      <div class="embed-hint" id="modal-hint" style="display:none"></div>
       <div class="modal-caption" id="modal-caption"></div>
       <div class="modal-actions" id="modal-actions"></div>
     </div>
@@ -812,17 +801,6 @@
     document.getElementById('media-expand')
       .classList.toggle('show', Boolean(p.embedUrl || p.imageUrl));
 
-    // Aviso cuando el embed de Canva puede estar bloqueado
-    const hint = document.getElementById('modal-hint');
-    if (p.embedType === 'canva') {
-      hint.innerHTML = `¿No se ve el diseño? En Canva debe estar publicado con <b>Compartir → Insertar</b>. ` +
-        `<a href="${p.contenidoUrl}" target="_blank" rel="noopener">Abrir en Canva</a>`;
-      hint.style.display = 'block';
-    } else {
-      hint.style.display = 'none';
-      hint.innerHTML = '';
-    }
-
     // Acciones
     const actions = [];
     if (needsApproval(p.estado)) {
@@ -837,8 +815,9 @@
       const cls = needsApproval(p.estado) ? 'modal-btn' : 'modal-btn primary';
       actions.push(`<a class="${cls}" href="${p.contenidoUrl}" target="_blank" rel="noopener">${label}</a>`);
     }
-    actions.push(`<a class="modal-btn" href="${p.notionUrl}" target="_blank" rel="noopener">Ver en Notion</a>`);
-    document.getElementById('modal-actions').innerHTML = actions.join('');
+    const actionsEl = document.getElementById('modal-actions');
+    actionsEl.innerHTML = actions.join('');
+    actionsEl.style.display = actions.length ? 'flex' : 'none';   // sin botones, sin barra
 
     document.getElementById('modal').classList.add('open');
     document.body.style.overflow = 'hidden';
