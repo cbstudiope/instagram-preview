@@ -482,11 +482,20 @@
 
 
     /* Contenedor interno de la media */
+    .native-video {
+      width: 100%; height: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      background: #000;
+      display: block;
+    }
+
     .media-poster {
       position: relative; width: 100%; height: 100%;
       display: flex; align-items: center; justify-content: center;
     }
     .media-poster img { width: 100%; height: 100%; object-fit: contain; }
+    a.play-btn { text-decoration: none; }
     .play-btn {
       position: absolute; inset: 0; margin: auto;
       width: 66px; height: 66px;
@@ -864,9 +873,55 @@
     }
   }
 
+  // Drive no entrego un video reproducible: volvemos a la portada con enlace
+  function driveFallback(id) {
+    const p = posts.find(x => x.id === id);
+    if (!p || p._driveFailed) return;
+    p._driveFailed = true;
+    if (currentPost && currentPost.id === id) renderMedia(p, false);
+  }
+
   function renderMedia(p, withEmbed) {
     const media  = document.getElementById('modal-media');
     const expand = document.getElementById('media-expand');
+
+    // Video como archivo directo: reproductor propio, un solo juego de controles
+    if (p.embedType === 'file-video') {
+      media.innerHTML = `<video class="native-video" src="${p.embedUrl}"
+        controls playsinline preload="metadata"
+        ${p.imageUrl ? `poster="${p.imageUrl}"` : ''}></video>`;
+      expand.classList.remove('show');   // iOS ya da pantalla completa nativa al video
+      return;
+    }
+
+    // Drive: intentamos reproducir el archivo directo con nuestro propio <video>
+    // (el reproductor de Drive duplica controles en iOS). Si no carga, portada.
+    if (p.embedType === 'drive') {
+      if (p.directUrl && !p._driveFailed) {
+        media.innerHTML = `<video class="native-video" src="${p.directUrl}"
+          controls playsinline preload="metadata"
+          ${p.imageUrl ? `poster="${p.imageUrl}"` : ''}
+          onerror="driveFallback('${p.id}')"></video>`;
+        expand.classList.remove('show');
+
+        // Si en 8s no logro leer el video, Drive devolvio otra cosa: me repliego
+        const v = media.querySelector('video');
+        const t = setTimeout(() => driveFallback(p.id), 8000);
+        v.addEventListener('loadedmetadata', () => clearTimeout(t), { once: true });
+        return;
+      }
+
+      media.innerHTML = `
+        <div class="media-poster">
+          ${p.imageUrl ? `<img src="${p.imageUrl}" alt="${esc(p.name)}">` : ''}
+          <a class="play-btn" href="${p.contenidoUrl}" target="_blank" rel="noopener" aria-label="Ver video">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff"><polygon points="6 4 20 12 6 20"/></svg>
+          </a>
+          <div class="play-hint">Ver el video en Drive</div>
+        </div>`;
+      expand.classList.remove('show');
+      return;
+    }
 
     if (p.embedUrl && !withEmbed) {
       media.innerHTML = `
