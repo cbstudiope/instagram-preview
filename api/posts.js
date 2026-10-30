@@ -161,10 +161,8 @@ export default async function handler(req, res) {
   function mapPosts(results) {
     return results
       .map((page) => {
-      const coverFiles = page.properties.Cover?.files || [];
-      const imageUrl = normalizeImageUrl(
-        coverFiles[0]?.file?.url || coverFiles[0]?.external?.url || null
-      );
+      // Cover sirve igual si es archivo subido, enlace pegado o propiedad URL
+      const imageUrl = normalizeImageUrl(readLinkProp(page.properties.Cover));
       const contenidoUrl = readLinkProp(page.properties.Contenido);
       const { embedUrl, embedType } = buildEmbed(contenidoUrl);
       return {
