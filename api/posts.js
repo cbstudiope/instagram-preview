@@ -114,6 +114,12 @@ export default async function handler(req, res) {
       return { embedUrl: `https://www.canva.com/design/${path}/view?embed`, embedType: 'canva' };
     }
 
+    // Carpeta de Drive: el carrusel se arma leyendo su contenido
+    const folder = url.match(/\/drive\/folders\/([-\w]{10,})/);
+    if (folder) {
+      return { embedUrl: null, embedType: 'drive-folder', folderId: folder[1] };
+    }
+
     if (/^https?:\/\/(drive|docs)\.google\.com\//i.test(url)) {
       const id =
         (url.match(/\/file\/d\/([-\w]{10,})/) || [])[1] ||
@@ -164,7 +170,7 @@ export default async function handler(req, res) {
       // Cover sirve igual si es archivo subido, enlace pegado o propiedad URL
       const imageUrl = normalizeImageUrl(readLinkProp(page.properties.Cover));
       const contenidoUrl = readLinkProp(page.properties.Contenido);
-      const { embedUrl, embedType } = buildEmbed(contenidoUrl);
+      const { embedUrl, embedType, folderId } = buildEmbed(contenidoUrl);
       return {
         id: page.id,
         name: page.properties.Name?.title?.[0]?.plain_text || 'Sin título',
@@ -174,6 +180,7 @@ export default async function handler(req, res) {
         contenidoUrl,
         embedUrl,
         embedType,
+        folderId: folderId || null,
         estado: page.properties.Estado?.status?.name || null,
         pilar: page.properties.Pilar?.select?.name || null,
         notionUrl: `https://www.notion.so/${page.id.replace(/-/g, '')}`,
