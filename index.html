@@ -377,6 +377,54 @@
       .header-title { font-size: 12px; }
     }
 
+    /* ── Carrusel de carpeta de Drive ─────────────── */
+    .carousel { position: relative; width: 100%; height: 100%; }
+    .carousel-img {
+      width: 100%; height: 100%;
+      object-fit: contain; display: block; background: #000;
+    }
+    .car-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 34px; height: 34px; border: none; border-radius: 50%;
+      background: rgba(0,0,0,0.55); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 3; transition: background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .car-nav:hover { background: rgba(0,0,0,0.8); }
+    .car-nav.prev { left: 10px; }
+    .car-nav.next { right: 10px; }
+    .car-nav[disabled] { opacity: 0.25; cursor: default; }
+
+    .car-dots {
+      position: absolute; bottom: 10px; left: 0; right: 0; z-index: 3;
+      display: flex; justify-content: center; gap: 5px;
+    }
+    .car-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(255,255,255,0.45);
+      border: none; padding: 0; cursor: pointer;
+      transition: background 0.15s, transform 0.15s;
+    }
+    .car-dot.on { background: #fff; transform: scale(1.25); }
+
+    .car-count {
+      position: absolute; top: 10px; right: 10px; z-index: 3;
+      padding: 3px 9px; border-radius: 20px;
+      background: rgba(0,0,0,0.6); color: #fff;
+      font-size: 11px; font-weight: 600;
+    }
+    .car-state {
+      display: flex; align-items: center; justify-content: center;
+      height: 100%; padding: 28px 22px; text-align: center;
+      color: var(--text-muted); font-size: 12px; line-height: 1.6;
+    }
+
+    @media (max-width: 820px) {
+      .car-nav { width: 40px; height: 40px; }
+      .car-dot { width: 7px; height: 7px; }
+    }
+
     /* ── Modal estilo Instagram ───────────────────── */
     .modal-backdrop {
       position: fixed; inset: 0; z-index: 1000;
@@ -844,6 +892,17 @@
       return;
     }
 
+    // Carpeta de Drive: carrusel armado con las imagenes de adentro
+    if (p.embedType === 'drive-folder') {
+      expand.classList.add('show');
+      if (p._images) { renderCarousel(p); }
+      else {
+        media.innerHTML = '<div class="car-state">Cargando carrusel...</div>';
+        loadCarousel(p);
+      }
+      return;
+    }
+
     // Embed (Drive, Canva, YouTube): se carga directo en el widget
     if (p.embedUrl) {
       media.innerHTML = `<iframe class="embed-wrap" src="${p.embedUrl}"
@@ -856,6 +915,71 @@
       media.innerHTML = '<div class="embed-fallback">Sin contenido para previsualizar.</div>';
       expand.classList.remove('show');
     }
+  }
+
+  // ── Carrusel ─────────────────────────────────────────
+  let carIdx = 0;
+
+  async function loadCarousel(p) {
+    try {
+      const r = await fetch('/api/carousel?folder=' + encodeURIComponent(p.folderId));
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+      if (!data.images || !data.images.length) {
+        throw new Error('La carpeta no tiene imagenes.');
+      }
+      p._images = data.images;
+      if (currentPost && currentPost.id === p.id) renderCarousel(p);
+    } catch (e) {
+      if (currentPost && currentPost.id === p.id) {
+        document.getElementById('modal-media').innerHTML =
+          `<div class="car-state">${esc(e.message)}</div>`;
+      }
+    }
+  }
+
+  function renderCarousel(p, idx = 0) {
+    carIdx = Math.max(0, Math.min(idx, p._images.length - 1));
+    const imgs = p._images;
+    const multi = imgs.length > 1;
+
+    document.getElementById('modal-media').innerHTML = `
+      <div class="carousel" id="carousel">
+        <img class="carousel-img" src="${imgs[carIdx].url}" alt="${esc(p.name)} ${carIdx + 1}">
+        ${multi ? `
+          <div class="car-count">${carIdx + 1}/${imgs.length}</div>
+          <button class="car-nav prev" onclick="carGo(-1)" ${carIdx === 0 ? 'disabled' : ''} aria-label="Anterior">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          </button>
+          <button class="car-nav next" onclick="carGo(1)" ${carIdx === imgs.length - 1 ? 'disabled' : ''} aria-label="Siguiente">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
+          <div class="car-dots">
+            ${imgs.map((_, i) => `<button class="car-dot ${i === carIdx ? 'on' : ''}" onclick="carGo(${i} - carIdx)" aria-label="Imagen ${i + 1}"></button>`).join('')}
+          </div>` : ''}
+      </div>`;
+
+    // Precargar la siguiente para que el avance sea instantaneo
+    if (imgs[carIdx + 1]) new Image().src = imgs[carIdx + 1].url;
+
+    if (multi) attachSwipe(p);
+  }
+
+  function carGo(delta) {
+    if (!currentPost || !currentPost._images) return;
+    renderCarousel(currentPost, carIdx + delta);
+  }
+
+  function attachSwipe(p) {
+    const el = document.getElementById('carousel');
+    let x0 = null;
+    el.addEventListener('touchstart', e => { x0 = e.changedTouches[0].clientX; }, { passive: true });
+    el.addEventListener('touchend', e => {
+      if (x0 === null) return;
+      const dx = e.changedTouches[0].clientX - x0;
+      if (Math.abs(dx) > 40) carGo(dx < 0 ? 1 : -1);
+      x0 = null;
+    }, { passive: true });
   }
 
   // ── Aprobar desde el widget ──────────────────────────
@@ -939,6 +1063,10 @@
   }
 
   document.addEventListener('keydown', e => {
+    if (currentPost && currentPost._images && document.getElementById('carousel')) {
+      if (e.key === 'ArrowLeft')  { carGo(-1); return; }
+      if (e.key === 'ArrowRight') { carGo(1);  return; }
+    }
     if (e.key !== 'Escape') return;
     const box = document.getElementById('modal-media-box');
     if (box.classList.contains('expanded')) exitExpand();   // 1ro salir de pantalla completa
