@@ -67,6 +67,8 @@ export default async function handler(req, res) {
         url: `https://drive.google.com/thumbnail?id=${f.id}&sz=w1200`,
         // Para video, a donde ir al tocarlo
         link: isVideo ? `https://drive.google.com/file/d/${f.id}/view` : null,
+        // Reproductor incrustado, se carga solo al tocar play
+        embed: isVideo ? `https://drive.google.com/file/d/${f.id}/preview` : null,
       };
     });
 
