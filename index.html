@@ -383,6 +383,13 @@
       width: 100%; height: 100%;
       object-fit: contain; display: block; background: #000;
     }
+    .car-embed {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      border: 0; display: block; background: #000;
+      z-index: 2;
+    }
+
     .car-play {
       position: absolute; inset: 0; margin: auto;
       width: 62px; height: 62px; border-radius: 50%;
@@ -938,6 +945,7 @@
 
   // ── Carrusel ─────────────────────────────────────────
   let carIdx = 0;
+  let carPlaying = false;   // el slide actual muestra el reproductor
 
   async function loadCarousel(p) {
     try {
@@ -957,19 +965,22 @@
     }
   }
 
-  function renderCarousel(p, idx = 0) {
+  function renderCarousel(p, idx = 0, playing = false) {
     carIdx = Math.max(0, Math.min(idx, p._images.length - 1));
+    carPlaying = playing;          // al navegar se corta la reproduccion
     const imgs = p._images;
     const multi = imgs.length > 1;
 
     document.getElementById('modal-media').innerHTML = `
       <div class="carousel" id="carousel">
         <img class="carousel-img" src="${imgs[carIdx].url}" alt="${esc(p.name)} ${carIdx + 1}">
-        ${imgs[carIdx].kind === 'video' ? `
-          <a class="car-play" href="${imgs[carIdx].link}" target="_blank" rel="noopener" aria-label="Ver video">
+        ${imgs[carIdx].kind === 'video' ? (carPlaying ? `
+          <iframe class="car-embed" src="${imgs[carIdx].embed}"
+            allow="fullscreen; autoplay; encrypted-media" allowfullscreen></iframe>` : `
+          <button class="car-play" onclick="carPlay()" aria-label="Reproducir video">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><polygon points="6 4 20 12 6 20"/></svg>
-          </a>
-          <div class="car-vid-hint">Ver el video en Drive</div>` : ''}
+          </button>
+          <div class="car-vid-hint">Toca para reproducir</div>`) : ''}
         ${multi ? `
           <div class="car-count">${carIdx + 1}/${imgs.length}</div>
           <button class="car-nav prev" onclick="carGo(-1)" ${carIdx === 0 ? 'disabled' : ''} aria-label="Anterior">
@@ -987,6 +998,11 @@
     if (imgs[carIdx + 1]) new Image().src = imgs[carIdx + 1].url;
 
     if (multi) attachSwipe(p);
+  }
+
+  function carPlay() {
+    if (!currentPost || !currentPost._images) return;
+    renderCarousel(currentPost, carIdx, true);
   }
 
   function carGo(delta) {
