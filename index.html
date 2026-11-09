@@ -383,6 +383,25 @@
       width: 100%; height: 100%;
       object-fit: contain; display: block; background: #000;
     }
+    .car-play {
+      position: absolute; inset: 0; margin: auto;
+      width: 62px; height: 62px; border-radius: 50%;
+      background: rgba(0,0,0,0.55);
+      border: 2px solid rgba(255,255,255,0.92);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 2; cursor: pointer; text-decoration: none;
+      transition: transform 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .car-play:hover { transform: scale(1.06); background: rgba(0,0,0,0.75); }
+    .car-play svg { margin-left: 3px; }
+    .car-vid-hint {
+      position: absolute; bottom: 30px; left: 0; right: 0; z-index: 2;
+      text-align: center; font-size: 11px; color: rgba(255,255,255,0.9);
+      text-shadow: 0 1px 4px rgba(0,0,0,0.85);
+      pointer-events: none;
+    }
+
     .car-nav {
       position: absolute; top: 50%; transform: translateY(-50%);
       width: 34px; height: 34px; border: none; border-radius: 50%;
@@ -946,6 +965,11 @@
     document.getElementById('modal-media').innerHTML = `
       <div class="carousel" id="carousel">
         <img class="carousel-img" src="${imgs[carIdx].url}" alt="${esc(p.name)} ${carIdx + 1}">
+        ${imgs[carIdx].kind === 'video' ? `
+          <a class="car-play" href="${imgs[carIdx].link}" target="_blank" rel="noopener" aria-label="Ver video">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#fff"><polygon points="6 4 20 12 6 20"/></svg>
+          </a>
+          <div class="car-vid-hint">Ver el video en Drive</div>` : ''}
         ${multi ? `
           <div class="car-count">${carIdx + 1}/${imgs.length}</div>
           <button class="car-nav prev" onclick="carGo(-1)" ${carIdx === 0 ? 'disabled' : ''} aria-label="Anterior">
