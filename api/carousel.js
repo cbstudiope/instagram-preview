@@ -21,11 +21,11 @@ export default async function handler(req, res) {
     });
   }
 
-  const q = `'${folder}' in parents and trashed = false and mimeType contains 'image/'`;
+  const q = `'${folder}' in parents and trashed = false and (mimeType contains 'image/' or mimeType contains 'video/')`;
   const url =
     'https://www.googleapis.com/drive/v3/files' +
     `?q=${encodeURIComponent(q)}` +
-    '&fields=files(id,name)' +
+    '&fields=files(id,name,mimeType)' +
     '&pageSize=200' +
     `&key=${KEY}`;
 
@@ -57,11 +57,18 @@ export default async function handler(req, res) {
     };
     files.sort((a, b) => numOf(a.name) - numOf(b.name) || a.name.localeCompare(b.name));
 
-    const images = files.map((f) => ({
-      id: f.id,
-      name: f.name,
-      url: `https://drive.google.com/thumbnail?id=${f.id}&sz=w1200`,
-    }));
+    const images = files.map((f) => {
+      const isVideo = (f.mimeType || '').startsWith('video/');
+      return {
+        id: f.id,
+        name: f.name,
+        kind: isVideo ? 'video' : 'image',
+        // Drive genera miniatura tambien para video: mostramos su fotograma
+        url: `https://drive.google.com/thumbnail?id=${f.id}&sz=w1200`,
+        // Para video, a donde ir al tocarlo
+        link: isVideo ? `https://drive.google.com/file/d/${f.id}/view` : null,
+      };
+    });
 
     return res.status(200).json({ images });
   } catch (err) {
